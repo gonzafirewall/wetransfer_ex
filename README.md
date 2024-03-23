@@ -10,6 +10,11 @@ A simple lib to download files from wetransfer publicly available
 iex(1)> WetransferEx.download("https://we.tl/t-LAa3dzUsjE")
 ```
 
+# TODO
+- [ ] Enable download override file if exists
+- [ ] Enable download output
+- [ ] Accept in the cli 
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed

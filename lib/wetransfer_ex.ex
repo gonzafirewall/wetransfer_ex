@@ -6,15 +6,24 @@ defmodule WetransferEx do
   @api_url "https://wetransfer.com/api/v4/transfers/"
 
   # def download(url, path: path), do: IO.inspect("Downloading #{url} to #{path}")
+  @spec download(binary() | URI.t()) :: :ok | {:error, atom()}
   def download(url) do
     url
-    |> URI.parse()
+    |> to_uri()
     |> get_direct_link()
     |> download_to()
   end
 
+  defp to_uri(url) do
+    URI.parse(url)
+  end
+
   def download_to(direct_link) do
-    [path|_tail] = direct_link |> URI.parse() |> Map.get(:path) |> String.split("/") |> Enum.reverse()
+    path = direct_link
+          |> URI.parse()
+          |> Map.get(:path)
+          |> String.split("/")
+          |> Enum.at(-1)
     file = File.open!(path, [:write, :exclusive])
     fun = fn request, finch_request, finch_name, finch_options ->
       fun = fn
@@ -47,25 +56,40 @@ defmodule WetransferEx do
     [location] = uri
                 |> URI.to_string()
                 |> Req.get!(redirect: false)
-                |> Map.get(:headers)
-                |> Map.get("location")
-    get_direct_link(location)
+                |> Req.Response.get_header("location")
+    get_direct_link_from_expanded_url(location)
   end
   defp get_direct_link(%URI{host: "wetransfer.com"} = uri) do
     uri
-    |> URI.to_string()
-    |> get_direct_link()
+    |> get_direct_link_from_expanded_url()
   end
   defp get_direct_link(%URI{}), do: IO.puts("Cannot download from this URL")
 
-  defp get_direct_link(uri) do
+  defp get_direct_link_from_expanded_url(%URI{} = uri) do
+    uri
+    |> URI.to_string()
+    |> get_direct_link_from_expanded_url()
+  end
+  defp get_direct_link_from_expanded_url(uri) do
+    uri
+    |> get_id_and_security_hash()
+    |> prepare_json_and_url()
+    |> get_download_link()
+  end
+  defp prepare_json_and_url({we_id, security_hash}) do
+    json_data = %{security_hash: security_hash, intent: "entire_transfer"}
+    {"#{@api_url}#{we_id}/download", json_data}
+  end
+  defp get_download_link({url, json_data}) do
+    res = Req.post!(url, json: json_data)
+    res.body["direct_link"]
+  end
+  defp get_id_and_security_hash(uri) do
     [_, _, we_id, security_hash] = uri
         |> URI.parse()
         |> Map.get(:path)
         |> String.split("/")
-    json_data = %{security_hash: security_hash, intent: "entire_transfer"}
-    res = Req.post!("#{@api_url}#{we_id}/download", json: json_data)
-    res.body["direct_link"]
+    {we_id, security_hash}
   end
 
 end
