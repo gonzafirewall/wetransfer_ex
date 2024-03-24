@@ -18,6 +18,7 @@ defmodule WetransferEx do
     URI.parse(url)
   end
 
+  def download_to(nil), do: :error
   def download_to(direct_link) do
     path = direct_link
           |> URI.parse()
@@ -50,11 +51,11 @@ defmodule WetransferEx do
 
   defp get_direct_link(%URI{host: nil}) do
     IO.puts("Invalid URL")
+    nil
   end
   defp get_direct_link(%URI{host: "we.tl"} = uri) do
     IO.puts("Downloading #{uri |> URI.to_string()}")
     [location] = uri
-                |> URI.to_string()
                 |> Req.get!(redirect: false)
                 |> Req.Response.get_header("location")
     get_direct_link_from_expanded_url(location)
@@ -65,6 +66,7 @@ defmodule WetransferEx do
   end
   defp get_direct_link(%URI{}), do: IO.puts("Cannot download from this URL")
 
+
   defp get_direct_link_from_expanded_url(%URI{} = uri) do
     uri
     |> URI.to_string()
@@ -73,18 +75,23 @@ defmodule WetransferEx do
   defp get_direct_link_from_expanded_url(uri) do
     uri
     |> get_id_and_security_hash()
-    |> prepare_json_and_url()
+    |> build_req()
     |> get_download_link()
   end
-  defp prepare_json_and_url({we_id, security_hash}) do
-    json_data = %{security_hash: security_hash, intent: "entire_transfer"}
-    {"#{@api_url}#{we_id}/download", json_data}
+  def build_req({we_id, security_hash}) do
+    data = %{security_hash: security_hash, intent: "entire_transfer"}
+    Req.new(
+      url: "#{@api_url}#{we_id}/download",
+      method: :post,
+      json: data
+      )
   end
-  defp get_download_link({url, json_data}) do
-    res = Req.post!(url, json: json_data)
-    res.body["direct_link"]
+  defp get_download_link(%Req.Request{} = req) do
+    Req.request!(req)
+    |> Map.get(:body)
+    |> Map.get("direct_link")
   end
-  defp get_id_and_security_hash(uri) do
+  def get_id_and_security_hash(uri) do
     [_, _, we_id, security_hash] = uri
         |> URI.parse()
         |> Map.get(:path)
