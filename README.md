@@ -11,8 +11,8 @@ iex(1)> WetransferEx.download("https://we.tl/t-LAa3dzUsjE")
 ```
 
 # TODO
-- [ ] Enable download override file if exists
-- [ ] Enable download output
+- [x] Enable download override file if exists
+- [x] Enable download output
 - [ ] Accept in the cli 
 
 ## Installation
