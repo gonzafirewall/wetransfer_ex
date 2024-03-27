@@ -7,25 +7,31 @@ defmodule WetransferEx do
 
   # def download(url, path: path), do: IO.inspect("Downloading #{url} to #{path}")
   @spec download(binary() | URI.t()) :: :ok | {:error, atom()}
-  def download(url) do
+  def download(url, path \\ nil, override \\ false) do
     url
     |> to_uri()
     |> get_direct_link()
-    |> download_to()
+    |> download_to(path, override)
   end
 
   defp to_uri(url) do
     URI.parse(url)
   end
 
+  def file_opts(false), do: [:write, :exclusive]
+  def file_opts(true), do: [:write]
+
   def download_to(nil), do: :error
-  def download_to(direct_link) do
-    path = direct_link
-          |> URI.parse()
-          |> Map.get(:path)
-          |> String.split("/")
-          |> Enum.at(-1)
-    file = File.open!(path, [:write, :exclusive])
+  def download_to(direct_link, nil, override) do
+     path = direct_link
+     |> URI.parse()
+     |> Map.get(:path)
+     |> String.split("/")
+     |> Enum.at(-1)
+    download(direct_link, path, override)
+  end
+  def download_to(direct_link, path, override) do
+    file = File.open!(path, file_opts(override))
     fun = fn request, finch_request, finch_name, finch_options ->
       fun = fn
         {:status, status}, response ->
